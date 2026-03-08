@@ -4,7 +4,8 @@ import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useBill } from '../context/BillContext';
 import { RootStackParamList } from '../navigation/types';
 import { useState } from 'react';
-import { CustomEditIcon } from './HomeScreen';
+import { CustomEditIcon } from '../components/Icons';
+import { Feather } from '@expo/vector-icons';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PersonDetail'>;
 
@@ -67,18 +68,28 @@ export function PersonDetailScreen({ route, navigation }: Props) {
                 </View>
 
                 {isEditingName ? (
-                    <TextInput
-                        style={styles.nameInput}
-                        value={participant.name}
-                        onChangeText={(t) => renameParticipant(participantId, t)}
-                        onBlur={() => setIsEditingName(false)}
-                        autoFocus
-                        selectTextOnFocus
-                    />
+                    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
+                        <TextInput
+                            style={styles.nameInput}
+                            value={participant.name}
+                            onChangeText={(t) => renameParticipant(participantId, t)}
+                            onBlur={() => setIsEditingName(false)}
+                            onSubmitEditing={() => setIsEditingName(false)}
+                            autoFocus
+                            selectTextOnFocus
+                        />
+                        <TouchableOpacity
+                            style={styles.confirmRenameBtn}
+                            onPress={() => setIsEditingName(false)}
+                            activeOpacity={0.8}
+                        >
+                            <Feather name="arrow-right" size={16} color="#022C22" />
+                        </TouchableOpacity>
+                    </View>
                 ) : (
                     <TouchableOpacity onPress={() => setIsEditingName(true)} activeOpacity={0.7}>
                         <View style={styles.nameRow}>
-                            <Text style={[styles.name, { flex: 0, flexShrink: 1 }]} numberOfLines={1}>
+                            <Text style={styles.name} numberOfLines={1}>
                                 {participant.name}
                             </Text>
                             <CustomEditIcon size={20} color="#5C5C5E" style={{ marginLeft: 8 }} />
@@ -107,7 +118,7 @@ export function PersonDetailScreen({ route, navigation }: Props) {
                 </View>
                 {bill.fees.map((fee) => {
                     if (!fee.isEnabled) return null;
-                    const amount = summary.feesShares[fee.id] || 0;
+                    const amount = (summary.feesShares && summary.feesShares[fee.id]) || 0;
                     return (
                         <View key={fee.id} style={styles.breakdownRow}>
                             <Text style={styles.breakdownLabel}>
@@ -250,6 +261,7 @@ const styles = StyleSheet.create({
         marginLeft: 10,
     },
     nameInput: {
+        flex: 1,
         fontSize: 26,
         fontWeight: '800',
         color: '#E5E5E8',
@@ -257,6 +269,15 @@ const styles = StyleSheet.create({
         borderBottomColor: '#2CC75C',
         paddingVertical: 4,
         letterSpacing: -0.3,
+    },
+    confirmRenameBtn: {
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        backgroundColor: '#2CC75C',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginLeft: 8,
     },
 
     // Total card

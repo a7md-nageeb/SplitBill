@@ -22,18 +22,7 @@ import {
 } from 'react-native';
 import { useBill, type LocalItem } from '../context/BillContext';
 import { MaterialCommunityIcons, Feather, Ionicons } from '@expo/vector-icons';
-import Svg, { Path } from 'react-native-svg';
-
-export const CustomEditIcon = ({ size = 16, color = '#5C5C5E', style }: any) => (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
-        <Path
-            fillRule="evenodd"
-            clipRule="evenodd"
-            d="M13.8787 2.70729C15.0503 1.53572 16.9498 1.53572 18.1213 2.70729L21.2929 5.87887C22.4645 7.05044 22.4645 8.94993 21.2929 10.1215L10.4714 20.943L3.14143 21.9901C2.82984 22.0346 2.51547 21.9299 2.2929 21.7073C2.07034 21.4847 1.96555 21.1704 2.01006 20.8588L3.0572 13.5288L13.8787 2.70729ZM16.7071 4.12151C16.3166 3.73098 15.6834 3.73098 15.2929 4.12151L14.4142 5.00019L19 9.58597L19.8787 8.70729C20.2692 8.31677 20.2692 7.6836 19.8787 7.29308L16.7071 4.12151ZM17.5858 11.0002L13 6.4144L5.41422 14.0002L10 18.586L17.5858 11.0002ZM7.87869 19.2931L4.70712 16.1215L4.17852 19.8217L7.87869 19.2931Z"
-            fill={color}
-        />
-    </Svg>
-);
+import { CustomEditIcon } from '../components/Icons';
 
 // ─── Add Item Bottom Sheet ────────────────────────────────
 function AddItemSheet({
@@ -373,15 +362,11 @@ const sheetStyles = StyleSheet.create({
         fontSize: 14,
         fontWeight: '600',
         color: '#FF8787',
-        // @ts-expect-error
-        fontVariationSettings: "'wdth' 128, 'GRAD' 50, 'ROND' 50",
     },
     makeSharedText: {
         fontSize: 14,
         fontWeight: '600',
         color: '#69D3F8',
-        // @ts-expect-error
-        fontVariationSettings: "'wdth' 128, 'GRAD' 50, 'ROND' 50",
     },
     sheet: {
         backgroundColor: '#1A1A1A',
@@ -403,8 +388,6 @@ const sheetStyles = StyleSheet.create({
         fontWeight: '700',
         color: '#F5F5F7',
         marginBottom: 20,
-        // @ts-expect-error
-        fontVariationSettings: "'wdth' 128, 'GRAD' 50, 'ROND' 50",
     },
     inputLabel: {
         fontSize: 12,
@@ -570,32 +553,37 @@ function PersonCard({
                         </TouchableOpacity>
                     </View>
                 ) : (
+                    <>
+                        <TouchableOpacity
+                            style={{ flexDirection: 'row', alignItems: 'center' }}
+                            onPress={(e) => {
+                                e.stopPropagation();
+                                setEditName(participant.name);
+                                setIsEditing(true);
+                            }}
+                            activeOpacity={0.7}
+                        >
+                            <Text style={personStyles.name} numberOfLines={1}>
+                                {participant.name}
+                            </Text>
+                            <CustomEditIcon size={14} color="#5C5C5E" style={{ marginLeft: 6 }} />
+                        </TouchableOpacity>
+                        <View style={{ flex: 1 }} />
+                    </>
+                )}
+                {!isEditing && (
                     <TouchableOpacity
-                        style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}
+                        style={personStyles.addItemPill}
                         onPress={(e) => {
                             e.stopPropagation();
-                            setEditName(participant.name);
-                            setIsEditing(true);
+                            onAddItem();
                         }}
                         activeOpacity={0.7}
                     >
-                        <Text style={[personStyles.name, { flex: 0, flexShrink: 1 }]} numberOfLines={1}>
-                            {participant.name}
-                        </Text>
-                        <CustomEditIcon size={14} color="#5C5C5E" style={{ marginLeft: 6 }} />
+                        <Feather name="plus" size={12} color="#A0A0A2" />
+                        <Text style={personStyles.addItemPillText}>Add item</Text>
                     </TouchableOpacity>
                 )}
-                <TouchableOpacity
-                    style={personStyles.addItemPill}
-                    onPress={(e) => {
-                        e.stopPropagation();
-                        onAddItem();
-                    }}
-                    activeOpacity={0.7}
-                >
-                    <Feather name="plus" size={12} color="#A0A0A2" />
-                    <Text style={personStyles.addItemPillText}>Add item</Text>
-                </TouchableOpacity>
             </View>
 
             {/* Items list */}
@@ -662,7 +650,6 @@ const personStyles = StyleSheet.create({
         fontWeight: '700',
     },
     name: {
-        flex: 1,
         fontSize: 15,
         fontWeight: '600',
         color: '#E5E5E8',
@@ -935,6 +922,14 @@ function TaxServiceSettingsSheet({
                                     <Text style={taxSheetStyles.addNewBtnText}>Add custom fee</Text>
                                 </TouchableOpacity>
                             )}
+
+                            <TouchableOpacity
+                                style={taxSheetStyles.saveBtn}
+                                onPress={onClose}
+                                activeOpacity={0.8}
+                            >
+                                <Text style={taxSheetStyles.saveBtnText}>Save changes</Text>
+                            </TouchableOpacity>
                         </ScrollView>
                     </TouchableOpacity>
                 </KeyboardAvoidingView>
@@ -1041,6 +1036,18 @@ const taxSheetStyles = StyleSheet.create({
     },
     formBtnText: {
         fontSize: 15,
+        fontWeight: '700',
+    },
+    saveBtn: {
+        backgroundColor: '#2CC75C',
+        paddingVertical: 16,
+        borderRadius: 14,
+        alignItems: 'center',
+        marginTop: 24,
+    },
+    saveBtnText: {
+        color: '#022C22',
+        fontSize: 16,
         fontWeight: '700',
     },
 });
@@ -1153,26 +1160,39 @@ export function HomeScreen() {
                     <View style={styles.header}>
                         <View style={styles.titleRow}>
                             {isEditingTitle ? (
-                                <TextInput
-                                    style={styles.titleInput}
-                                    value={billTitle}
-                                    onChangeText={setBillTitle}
-                                    onBlur={() => setIsEditingTitle(false)}
-                                    autoFocus
-                                    selectTextOnFocus
-                                />
+                                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
+                                    <TextInput
+                                        style={styles.titleInput}
+                                        value={billTitle}
+                                        onChangeText={setBillTitle}
+                                        onBlur={() => setIsEditingTitle(false)}
+                                        onSubmitEditing={() => setIsEditingTitle(false)}
+                                        autoFocus
+                                        selectTextOnFocus
+                                    />
+                                    <TouchableOpacity
+                                        style={personStyles.confirmRenameBtn}
+                                        onPress={() => setIsEditingTitle(false)}
+                                        activeOpacity={0.8}
+                                    >
+                                        <Feather name="arrow-right" size={16} color="#022C22" />
+                                    </TouchableOpacity>
+                                </View>
                             ) : (
                                 <TouchableOpacity
                                     style={styles.titleClickArea}
                                     onPress={() => setIsEditingTitle(true)}
+                                    activeOpacity={0.7}
                                 >
-                                    <Text style={styles.title}>{billTitle}</Text>
-                                    <Feather name="edit-2" size={16} color="#5C5C5E" style={{ marginLeft: 8 }} />
+                                    <Text style={styles.title} numberOfLines={1}>
+                                        {billTitle}
+                                    </Text>
+                                    <CustomEditIcon size={18} color="#5C5C5E" style={{ marginLeft: 8 }} />
                                 </TouchableOpacity>
                             )}
-                            <TouchableOpacity style={styles.moreIcon}>
+                            {/* <TouchableOpacity style={styles.moreIcon}>
                                 <MaterialCommunityIcons name="dots-vertical" size={24} color="#5C5C5E" />
-                            </TouchableOpacity>
+                            </TouchableOpacity> */}
                         </View>
                     </View>
 
@@ -1422,15 +1442,12 @@ const styles = StyleSheet.create({
     titleClickArea: {
         flexDirection: 'row',
         alignItems: 'center',
-        flex: 1,
     },
     title: {
         fontSize: 24,
         fontWeight: '800',
         color: '#F5F5F7',
         letterSpacing: -0.5,
-        // @ts-expect-error
-        fontVariationSettings: "'wdth' 128, 'GRAD' 50, 'ROND' 50",
     },
     moreIcon: {
         padding: 4,
@@ -1448,8 +1465,6 @@ const styles = StyleSheet.create({
         paddingBottom: 4,
         borderBottomWidth: 2,
         borderBottomColor: '#2CC75C',
-        // @ts-expect-error
-        fontVariationSettings: "'wdth' 128, 'GRAD' 50, 'ROND' 50",
     },
 
     // Toggles
