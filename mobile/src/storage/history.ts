@@ -50,3 +50,9 @@ export async function getBillFromHistory(
   return all.find((r) => r.id === id);
 }
 
+export async function removeBillFromHistory(id: string): Promise<void> {
+  const all = await readAll();
+  const next = all.filter((r) => r.id !== id);
+  await writeAll(next);
+}
+

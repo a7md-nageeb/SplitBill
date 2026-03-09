@@ -29,8 +29,21 @@ export function BillSummaryScreen({ route }: Props) {
         <View>
           <Text style={styles.participantName}>{name}</Text>
           <Text style={styles.participantMeta}>
-            Items {item.itemSubtotal.toFixed(2)} · Service{' '}
-            {item.serviceShare.toFixed(2)} · VAT {item.vatShare.toFixed(2)}
+            Items {item.itemSubtotal.toFixed(2)}
+            {item.feesShares ? (
+              Object.keys(item.feesShares).map(feeId => {
+                const fee = bill.fees?.find(f => f.id === feeId);
+                if (!fee || !fee.isEnabled) return null;
+                return ` · ${fee.name} ${item.feesShares[feeId].toFixed(2)}`;
+              })
+            ) : (
+              <>
+                {' · Service '}
+                {((item as any).serviceShare ?? 0).toFixed(2)}
+                {' · VAT '}
+                {((item as any).vatShare ?? 0).toFixed(2)}
+              </>
+            )}
           </Text>
         </View>
         <Text style={styles.participantTotal}>
@@ -62,10 +75,17 @@ export function BillSummaryScreen({ route }: Props) {
       <View style={styles.header}>
         <Text style={styles.title}>{bill.title}</Text>
         <Text style={styles.subtitle}>
-          Total {bill.total.toFixed(2)} EGP · Service {(
-            bill.serviceRate * 100
-          ).toFixed(0)}
-          % · VAT {(bill.vatRate * 100).toFixed(0)}%
+          Total {bill.total.toFixed(2)} EGP
+          {bill.fees ? (
+            bill.fees.map(fee => fee.isEnabled ? ` · ${fee.name} ${(fee.rate * 100).toFixed(0)}%` : '')
+          ) : (
+            <>
+              {' · Service '}
+              {(((bill as any).serviceRate ?? 0) * 100).toFixed(0)}%
+              {' · VAT '}
+              {(((bill as any).vatRate ?? 0) * 100).toFixed(0)}%
+            </>
+          )}
         </Text>
       </View>
 
@@ -74,14 +94,25 @@ export function BillSummaryScreen({ route }: Props) {
           <Text style={styles.billLabel}>Subtotal</Text>
           <Text style={styles.billValue}>{bill.subtotal.toFixed(2)}</Text>
         </View>
-        <View style={styles.billRow}>
-          <Text style={styles.billLabel}>Service</Text>
-          <Text style={styles.billValue}>{bill.serviceAmount.toFixed(2)}</Text>
-        </View>
-        <View style={styles.billRow}>
-          <Text style={styles.billLabel}>VAT</Text>
-          <Text style={styles.billValue}>{bill.vatAmount.toFixed(2)}</Text>
-        </View>
+        {bill.fees ? (
+          bill.fees.map(fee => fee.isEnabled ? (
+            <View key={fee.id} style={styles.billRow}>
+              <Text style={styles.billLabel}>{fee.name}</Text>
+              <Text style={styles.billValue}>{(bill.feesAmounts?.[fee.id] ?? 0).toFixed(2)}</Text>
+            </View>
+          ) : null)
+        ) : (
+          <>
+            <View style={styles.billRow}>
+              <Text style={styles.billLabel}>Service</Text>
+              <Text style={styles.billValue}>{((bill as any).serviceAmount ?? 0).toFixed(2)}</Text>
+            </View>
+            <View style={styles.billRow}>
+              <Text style={styles.billLabel}>VAT</Text>
+              <Text style={styles.billValue}>{((bill as any).vatAmount ?? 0).toFixed(2)}</Text>
+            </View>
+          </>
+        )}
         <View style={styles.billTotalRow}>
           <Text style={styles.billTotalLabel}>Total</Text>
           <Text style={styles.billTotalValue}>

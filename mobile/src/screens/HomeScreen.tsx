@@ -1,16 +1,16 @@
-import { Text as RNText, TextInput as RNTextInput } from 'react-native';
-import { Text, TextInput } from '../components/Typography';
-import {
-    useNavigation
-} from '@react-navigation/native';
+import { Text as RNText, TextInput as RNTextInput } from "react-native";
+import { Text, TextInput } from "../components/Typography";
+import { useNavigation } from "@react-navigation/native";
 import {
     useState,
     useLayoutEffect,
     useCallback,
-    useRef
-} from 'react';
+    useRef,
+    useEffect,
+} from "react";
 import {
     KeyboardAvoidingView,
+    Keyboard,
     Modal,
     Platform,
     ScrollView,
@@ -18,11 +18,36 @@ import {
     TouchableOpacity,
     View,
     SafeAreaView,
-    StatusBar
-} from 'react-native';
-import { useBill, type LocalItem } from '../context/BillContext';
-import { MaterialCommunityIcons, Feather, Ionicons } from '@expo/vector-icons';
-import { CustomEditIcon } from '../components/Icons';
+    StatusBar,
+} from "react-native";
+import { useBill, type LocalItem } from "../context/BillContext";
+import { MaterialCommunityIcons, Feather, Ionicons } from "@expo/vector-icons";
+import { CustomEditIcon } from "../components/Icons";
+// ─── Keyboard Hook ───────────────────────────────────────
+function useKeyboardHeight() {
+    const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+    useEffect(() => {
+        const showEvent =
+            Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+        const hideEvent =
+            Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+
+        const showSub = Keyboard.addListener(showEvent, (e) => {
+            setKeyboardHeight(e.endCoordinates.height);
+        });
+        const hideSub = Keyboard.addListener(hideEvent, () => {
+            setKeyboardHeight(0);
+        });
+
+        return () => {
+            showSub.remove();
+            hideSub.remove();
+        };
+    }, []);
+
+    return keyboardHeight;
+}
 
 // ─── Add Item Bottom Sheet ────────────────────────────────
 function AddItemSheet({
@@ -44,9 +69,10 @@ function AddItemSheet({
     onClose: () => void;
     onRequestMakeShared: () => void;
 }) {
-    const [label, setLabel] = useState('');
-    const [priceText, setPriceText] = useState('');
+    const [label, setLabel] = useState("");
+    const [priceText, setPriceText] = useState("");
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
+    const keyboardHeight = useKeyboardHeight();
 
     // Reset selected IDs whenever sheet opens
     const prevVisible = useRef(false);
@@ -67,19 +93,19 @@ function AddItemSheet({
     };
 
     const handleAdd = () => {
-        const parsed = parseFloat(priceText.replace(',', '.'));
+        const parsed = parseFloat(priceText.replace(",", "."));
         if (!Number.isFinite(parsed) || parsed <= 0) return;
         const ids = isShared ? selectedIds : [];
         onAdd(label.trim() || defaultLabel, parsed, ids);
-        setLabel('');
-        setPriceText('');
+        setLabel("");
+        setPriceText("");
         setSelectedIds([]);
         onClose();
     };
 
     const handleClose = () => {
-        setLabel('');
-        setPriceText('');
+        setLabel("");
+        setPriceText("");
         setSelectedIds([]);
         onClose();
     };
@@ -97,8 +123,11 @@ function AddItemSheet({
                 onPress={handleClose}
             >
                 <KeyboardAvoidingView
-                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                    style={{ width: '100%' }}
+                    behavior={Platform.OS === "ios" ? "padding" : undefined}
+                    style={{
+                        width: "100%",
+                        paddingBottom: Platform.OS === "android" ? keyboardHeight : 0,
+                    }}
                 >
                     <TouchableOpacity
                         activeOpacity={1}
@@ -108,7 +137,7 @@ function AddItemSheet({
                         <View style={sheetStyles.handle} />
                         <View style={sheetStyles.headerRow}>
                             <Text style={[sheetStyles.title, { marginBottom: 0 }]}>
-                                Add item {targetLabel ? `for ${targetLabel}` : ''}
+                                Add item {targetLabel ? `for ${targetLabel}` : ""}
                             </Text>
                             {!isShared && participants.length > 1 && (
                                 <TouchableOpacity onPress={onRequestMakeShared}>
@@ -175,7 +204,8 @@ function AddItemSheet({
                         <TouchableOpacity
                             style={[
                                 sheetStyles.addBtn,
-                                (!priceText || parseFloat(priceText) <= 0) && sheetStyles.addBtnDisabled,
+                                (!priceText || parseFloat(priceText) <= 0) &&
+                                sheetStyles.addBtnDisabled,
                             ]}
                             onPress={handleAdd}
                             activeOpacity={0.8}
@@ -201,13 +231,19 @@ function EditItemSheet({
     visible: boolean;
     item: LocalItem | null;
     participants: { id: string; name: string }[];
-    onSave: (id: string, label: string, price: number, selectedIds: string[]) => void;
+    onSave: (
+        id: string,
+        label: string,
+        price: number,
+        selectedIds: string[],
+    ) => void;
     onRemove: (id: string) => void;
     onClose: () => void;
 }) {
-    const [label, setLabel] = useState('');
-    const [priceText, setPriceText] = useState('');
+    const [label, setLabel] = useState("");
+    const [priceText, setPriceText] = useState("");
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
+    const keyboardHeight = useKeyboardHeight();
 
     const prevVisible = useRef(false);
     if (visible && !prevVisible.current && item) {
@@ -233,15 +269,15 @@ function EditItemSheet({
 
     const handleSave = () => {
         if (!item) return;
-        const parsed = parseFloat(priceText.replace(',', '.'));
+        const parsed = parseFloat(priceText.replace(",", "."));
         if (!Number.isFinite(parsed) || parsed <= 0) return;
         onSave(item.id, label.trim() || `Item`, parsed, selectedIds);
         handleClose();
     };
 
     const handleClose = () => {
-        setLabel('');
-        setPriceText('');
+        setLabel("");
+        setPriceText("");
         setSelectedIds([]);
         onClose();
     };
@@ -261,8 +297,11 @@ function EditItemSheet({
                 onPress={handleClose}
             >
                 <KeyboardAvoidingView
-                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                    style={{ width: '100%' }}
+                    behavior={Platform.OS === "ios" ? "padding" : undefined}
+                    style={{
+                        width: "100%",
+                        paddingBottom: Platform.OS === "android" ? keyboardHeight : 0,
+                    }}
                 >
                     <TouchableOpacity
                         activeOpacity={1}
@@ -271,8 +310,15 @@ function EditItemSheet({
                     >
                         <View style={sheetStyles.handle} />
                         <View style={sheetStyles.headerRow}>
-                            <Text style={[sheetStyles.title, { marginBottom: 0 }]}>Edit item</Text>
-                            <TouchableOpacity onPress={() => { onRemove(item.id); handleClose(); }}>
+                            <Text style={[sheetStyles.title, { marginBottom: 0 }]}>
+                                Edit item
+                            </Text>
+                            <TouchableOpacity
+                                onPress={() => {
+                                    onRemove(item.id);
+                                    handleClose();
+                                }}
+                            >
                                 <Text style={sheetStyles.removeText}>Remove</Text>
                             </TouchableOpacity>
                         </View>
@@ -332,7 +378,8 @@ function EditItemSheet({
                         <TouchableOpacity
                             style={[
                                 sheetStyles.addBtn,
-                                (!priceText || parseFloat(priceText) <= 0) && sheetStyles.addBtnDisabled,
+                                (!priceText || parseFloat(priceText) <= 0) &&
+                                sheetStyles.addBtnDisabled,
                             ]}
                             onPress={handleSave}
                             activeOpacity={0.8}
@@ -349,99 +396,99 @@ function EditItemSheet({
 const sheetStyles = StyleSheet.create({
     overlay: {
         flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.6)',
-        justifyContent: 'flex-end',
+        backgroundColor: "rgba(0,0,0,0.6)",
+        justifyContent: "flex-end",
     },
     headerRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
         marginBottom: 20,
     },
     removeText: {
         fontSize: 14,
-        fontWeight: '600',
-        color: '#FF8787',
+        fontWeight: "600",
+        color: "#FF8787",
     },
     makeSharedText: {
         fontSize: 14,
-        fontWeight: '600',
-        color: '#69D3F8',
+        fontWeight: "600",
+        color: "#69D3F8",
     },
     sheet: {
-        backgroundColor: '#1A1A1A',
+        backgroundColor: "#1A1A1A",
         borderTopLeftRadius: 24,
         borderTopRightRadius: 24,
         padding: 24,
-        paddingBottom: Platform.OS === 'ios' ? 40 : 24,
+        paddingBottom: Platform.OS === "ios" ? 40 : 24,
     },
     handle: {
         width: 40,
         height: 4,
         borderRadius: 2,
-        backgroundColor: '#404041',
-        alignSelf: 'center',
+        backgroundColor: "#404041",
+        alignSelf: "center",
         marginBottom: 20,
     },
     title: {
         fontSize: 20,
-        fontWeight: '700',
-        color: '#F5F5F7',
+        fontWeight: "700",
+        color: "#F5F5F7",
         marginBottom: 20,
     },
     inputLabel: {
         fontSize: 12,
-        fontWeight: '600',
-        color: '#7D7D80',
-        textTransform: 'uppercase',
+        fontWeight: "600",
+        color: "#7D7D80",
+        textTransform: "uppercase",
         letterSpacing: 0.5,
         marginBottom: 6,
     },
     input: {
-        backgroundColor: '#141414',
+        backgroundColor: "#141414",
         borderRadius: 12,
         borderWidth: 1,
-        borderColor: '#292929',
+        borderColor: "#292929",
         padding: 14,
         fontSize: 16,
-        color: '#E5E5E8',
+        color: "#E5E5E8",
         marginBottom: 16,
     },
     priceRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#141414',
+        flexDirection: "row",
+        alignItems: "center",
+        backgroundColor: "#141414",
         borderRadius: 12,
         borderWidth: 1,
-        borderColor: '#292929',
+        borderColor: "#292929",
         paddingHorizontal: 14,
         marginBottom: 24,
     },
     currency: {
         fontSize: 14,
-        color: '#7D7D80',
-        fontWeight: '600',
+        color: "#7D7D80",
+        fontWeight: "600",
         marginRight: 8,
     },
     priceInput: {
         flex: 1,
         padding: 14,
         fontSize: 16,
-        color: '#E5E5E8',
+        color: "#E5E5E8",
     },
     addBtn: {
-        backgroundColor: '#2CC75C',
+        backgroundColor: "#2CC75C",
         paddingVertical: 16,
         borderRadius: 14,
-        alignItems: 'center',
+        alignItems: "center",
     },
     addBtnDisabled: {
-        backgroundColor: '#404041',
+        backgroundColor: "#404041",
     },
     addBtnText: {
         fontSize: 16,
-        fontWeight: '700',
-        color: '#022C22',
+        fontWeight: "700",
+        color: "#022C22",
         // @ts-expect-error
         fontVariationSettings: "'wdth' 128, 'GRAD' 50, 'ROND' 50",
     },
@@ -449,8 +496,8 @@ const sheetStyles = StyleSheet.create({
         marginBottom: 16,
     },
     chipsRow: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
+        flexDirection: "row",
+        flexWrap: "wrap",
         gap: 8,
         marginTop: 8,
     },
@@ -459,20 +506,20 @@ const sheetStyles = StyleSheet.create({
         paddingVertical: 8,
         borderRadius: 99,
         borderWidth: 1,
-        borderColor: '#404041',
-        backgroundColor: '#141414',
+        borderColor: "#404041",
+        backgroundColor: "#141414",
     },
     chipActive: {
-        backgroundColor: '#2CC75C18',
-        borderColor: '#2CC75C',
+        backgroundColor: "#2CC75C18",
+        borderColor: "#2CC75C",
     },
     chipText: {
         fontSize: 13,
-        fontWeight: '600',
-        color: '#7D7D80',
+        fontWeight: "600",
+        color: "#7D7D80",
     },
     chipTextActive: {
-        color: '#86EFAC',
+        color: "#86EFAC",
     },
 });
 
@@ -488,7 +535,8 @@ function PersonCard({
     onEditItem: (item: LocalItem) => void;
     onPress: () => void;
 }) {
-    const { getParticipantSummary, getItemsForParticipant, renameParticipant } = useBill();
+    const { getParticipantSummary, getItemsForParticipant, renameParticipant } =
+        useBill();
     const summary = getParticipantSummary(participant.id);
     const myItems = getItemsForParticipant(participant.id);
     const total = summary?.grandTotal ?? 0;
@@ -497,7 +545,7 @@ function PersonCard({
     const [editName, setEditName] = useState(participant.name);
 
     const hue =
-        participant.name.split('').reduce((s, c) => s + c.charCodeAt(0), 0) % 360;
+        participant.name.split("").reduce((s, c) => s + c.charCodeAt(0), 0) % 360;
     const firstLetter = participant.name.charAt(0).toUpperCase();
 
     const handleNameSubmit = () => {
@@ -525,13 +573,16 @@ function PersonCard({
                     ]}
                 >
                     <Text
-                        style={[personStyles.avatarText, { color: `hsl(${hue}, 70%, 65%)` }]}
+                        style={[
+                            personStyles.avatarText,
+                            { color: `hsl(${hue}, 70%, 65%)` },
+                        ]}
                     >
                         {firstLetter}
                     </Text>
                 </View>
                 {isEditing ? (
-                    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
+                    <View style={{ flex: 1, flexDirection: "row", alignItems: "center" }}>
                         <TextInput
                             style={personStyles.nameInput}
                             value={editName}
@@ -555,7 +606,7 @@ function PersonCard({
                 ) : (
                     <>
                         <TouchableOpacity
-                            style={{ flexDirection: 'row', alignItems: 'center' }}
+                            style={{ flexDirection: "row", alignItems: "center" }}
                             onPress={(e) => {
                                 e.stopPropagation();
                                 setEditName(participant.name);
@@ -566,7 +617,11 @@ function PersonCard({
                             <Text style={personStyles.name} numberOfLines={1}>
                                 {participant.name}
                             </Text>
-                            <CustomEditIcon size={14} color="#5C5C5E" style={{ marginLeft: 6 }} />
+                            <CustomEditIcon
+                                size={14}
+                                color="#5C5C5E"
+                                style={{ marginLeft: 6 }}
+                            />
                         </TouchableOpacity>
                         <View style={{ flex: 1 }} />
                     </>
@@ -589,28 +644,37 @@ function PersonCard({
             {/* Items list */}
             {myItems.length > 0 && (
                 <View style={personStyles.itemsList}>
-                    {myItems.map((item) => (
-                        <TouchableOpacity
-                            key={item.id}
-                            style={personStyles.itemRow}
-                            onPress={() => onEditItem(item)}
-                            activeOpacity={0.7}
-                        >
-                            <Text style={personStyles.itemLabel} numberOfLines={1}>
-                                {item.label}
-                            </Text>
-                            <Text style={personStyles.itemPrice}>
-                                {item.price.toFixed(2)}
-                            </Text>
-                        </TouchableOpacity>
-                    ))}
+                    {myItems.map((item) => {
+                        const isShared = item.assignedTo.length > 1;
+                        const shareCut = isShared
+                            ? item.price / item.assignedTo.length
+                            : item.price;
+                        return (
+                            <TouchableOpacity
+                                key={item.id}
+                                style={personStyles.itemRow}
+                                onPress={() => onEditItem(item)}
+                                activeOpacity={0.7}
+                            >
+                                <Text style={personStyles.itemLabel} numberOfLines={1}>
+                                    {item.label}
+                                    {isShared && (
+                                        <Text style={personStyles.sharedTag}> (shared)</Text>
+                                    )}
+                                </Text>
+                                <Text style={personStyles.itemPrice}>
+                                    {shareCut.toFixed(2)}
+                                </Text>
+                            </TouchableOpacity>
+                        );
+                    })}
                 </View>
             )}
 
             {/* Footer with thin line */}
             <View style={personStyles.footer}>
                 <Text style={personStyles.totalLabel}>Total</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
+                <View style={{ flexDirection: "row", alignItems: "baseline" }}>
                     <Text style={personStyles.total}>{total.toFixed(2)}</Text>
                     <Text style={personStyles.currency}>EGP</Text>
                 </View>
@@ -621,143 +685,148 @@ function PersonCard({
 
 const personStyles = StyleSheet.create({
     card: {
-        display: 'flex',
+        display: "flex",
         padding: 12,
-        flexDirection: 'column',
-        alignItems: 'stretch',
+        flexDirection: "column",
+        alignItems: "stretch",
         gap: 16,
-        alignSelf: 'stretch',
-        backgroundColor: '#1A1A1A',
+        alignSelf: "stretch",
+        backgroundColor: "#1A1A1A",
         borderRadius: 16,
         marginBottom: 10,
         borderWidth: 1,
-        borderColor: '#292929',
+        borderColor: "#292929",
     },
     headerRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
+        flexDirection: "row",
+        alignItems: "center",
     },
     avatar: {
         width: 36,
         height: 36,
         borderRadius: 18,
-        alignItems: 'center',
-        justifyContent: 'center',
+        alignItems: "center",
+        justifyContent: "center",
         marginRight: 10,
     },
     avatarText: {
         fontSize: 16,
-        fontWeight: '700',
+        fontWeight: "700",
     },
     name: {
         fontSize: 15,
-        fontWeight: '600',
-        color: '#E5E5E8',
+        fontWeight: "600",
+        color: "#E5E5E8",
     },
     nameInput: {
         flex: 1,
         fontSize: 15,
-        fontWeight: '600',
-        color: '#E5E5E8',
+        fontWeight: "600",
+        color: "#E5E5E8",
         borderBottomWidth: 1,
-        borderBottomColor: '#2CC75C',
+        borderBottomColor: "#2CC75C",
         paddingVertical: 2,
     },
     confirmRenameBtn: {
         width: 28,
         height: 28,
         borderRadius: 14,
-        backgroundColor: '#2CC75C',
-        alignItems: 'center',
-        justifyContent: 'center',
+        backgroundColor: "#2CC75C",
+        alignItems: "center",
+        justifyContent: "center",
         marginLeft: 8,
     },
     total: {
         fontSize: 16,
-        fontWeight: '700',
-        color: '#2CC75C',
+        fontWeight: "700",
+        color: "#2CC75C",
         marginRight: 4,
     },
     currency: {
         fontSize: 11,
-        color: '#7CFFA4',
-        fontWeight: '600',
+        color: "#7CFFA4",
+        fontWeight: "600",
     },
     totalRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
+        flexDirection: "row",
+        alignItems: "center",
         marginTop: 10,
         paddingTop: 10,
         borderTopWidth: 1,
-        borderTopColor: '#292929',
+        borderTopColor: "#292929",
     },
     totalLabel: {
         flex: 1,
         fontSize: 13,
-        color: '#7D7D80',
-        fontWeight: '600',
+        color: "#7D7D80",
+        fontWeight: "600",
     },
     itemsList: {
         marginTop: 10,
         paddingTop: 10,
         borderTopWidth: 1,
-        borderTopColor: '#292929',
+        borderTopColor: "#292929",
     },
     itemRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
+        flexDirection: "row",
+        alignItems: "center",
         paddingVertical: 6,
     },
     itemLabel: {
         flex: 1,
         fontSize: 13,
-        color: '#A0A0A2',
+        color: "#A0A0A2",
+    },
+    sharedTag: {
+        fontSize: 12,
+        color: "#7D7D80",
+        fontStyle: "italic",
     },
     itemPrice: {
         fontSize: 13,
-        fontWeight: '600',
-        color: '#C2C2C6',
+        fontWeight: "600",
+        color: "#C2C2C6",
         marginRight: 8,
     },
     itemRemove: {
         width: 22,
         height: 22,
         borderRadius: 11,
-        backgroundColor: '#DD4E4E15',
-        alignItems: 'center',
-        justifyContent: 'center',
+        backgroundColor: "#DD4E4E15",
+        alignItems: "center",
+        justifyContent: "center",
     },
     itemRemoveText: {
-        color: '#FF8787',
+        color: "#FF8787",
         fontSize: 10,
-        fontWeight: '700',
+        fontWeight: "700",
     },
     addItemPill: {
-        flexDirection: 'row',
-        alignItems: 'center',
+        flexDirection: "row",
+        alignItems: "center",
         paddingHorizontal: 10,
         paddingVertical: 6,
         borderRadius: 8,
-        backgroundColor: '#292929',
+        backgroundColor: "#292929",
         marginLeft: 8,
         gap: 4,
         borderWidth: 1,
-        borderColor: '#404041',
+        borderColor: "#404041",
     },
     addItemPillText: {
         fontSize: 12,
-        color: '#A0A0A2',
-        fontWeight: '600',
+        color: "#A0A0A2",
+        fontWeight: "600",
         // @ts-expect-error
         fontVariationSettings: "'wdth' 128, 'GRAD' 50, 'ROND' 50",
     },
     footer: {
-        flexDirection: 'row',
-        alignItems: 'center',
+        flexDirection: "row",
+        alignItems: "center",
         marginTop: 10,
         paddingTop: 10,
         borderTopWidth: 1,
-        borderTopColor: '#292929',
+        borderTopColor: "#292929",
     },
 });
 
@@ -772,27 +841,28 @@ function TaxServiceSettingsSheet({
     const { fees, toggleFee, updateFee, removeFee, addFee } = useBill();
 
     const [showAddForm, setShowAddForm] = useState(false);
-    const [newFeeName, setNewFeeName] = useState('');
-    const [newFeeRateText, setNewFeeRateText] = useState('');
+    const [newFeeName, setNewFeeName] = useState("");
+    const [newFeeRateText, setNewFeeRateText] = useState("");
+    const keyboardHeight = useKeyboardHeight();
 
     const handleAddFee = () => {
-        const parsed = parseFloat(newFeeRateText.replace(',', '.'));
+        const parsed = parseFloat(newFeeRateText.replace(",", "."));
         if (!Number.isFinite(parsed) || parsed <= 0 || !newFeeName.trim()) return;
         addFee(newFeeName.trim(), parsed / 100);
-        setNewFeeName('');
-        setNewFeeRateText('');
+        setNewFeeName("");
+        setNewFeeRateText("");
         setShowAddForm(false);
     };
 
     const handleClose = () => {
         setShowAddForm(false);
-        setNewFeeName('');
-        setNewFeeRateText('');
+        setNewFeeName("");
+        setNewFeeRateText("");
         onClose();
     };
 
     // Built-in fee IDs that cannot be deleted
-    const builtInIds = ['fee-1', 'fee-2'];
+    const builtInIds = ["fee-1", "fee-2"];
 
     return (
         <Modal
@@ -807,8 +877,12 @@ function TaxServiceSettingsSheet({
                 onPress={handleClose}
             >
                 <KeyboardAvoidingView
-                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                    style={{ width: '100%' }}
+                    behavior={Platform.OS === "ios" ? "padding" : undefined}
+                    style={{
+                        flex: 1,
+                        justifyContent: "flex-end",
+                        paddingBottom: Platform.OS === "android" ? keyboardHeight : 0,
+                    }}
                 >
                     <TouchableOpacity
                         activeOpacity={1}
@@ -817,22 +891,35 @@ function TaxServiceSettingsSheet({
                     >
                         <View style={sheetStyles.handle} />
                         <View style={sheetStyles.headerRow}>
-                            <Text style={[sheetStyles.title, { marginBottom: 0 }]}>Tax & Service</Text>
+                            <Text style={[sheetStyles.title, { marginBottom: 0 }]}>
+                                Tax & Service
+                            </Text>
                             <TouchableOpacity onPress={handleClose}>
                                 <Feather name="x" size={20} color="#7D7D80" />
                             </TouchableOpacity>
                         </View>
 
-                        <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 400 }}>
+                        <ScrollView
+                            showsVerticalScrollIndicator={false}
+                            style={{ maxHeight: 400 }}
+                        >
                             {fees.map((fee) => (
                                 <View key={fee.id} style={taxSheetStyles.feeRow}>
                                     {/* Toggle */}
                                     <TouchableOpacity
-                                        style={[taxSheetStyles.miniTrack, fee.isEnabled && taxSheetStyles.miniTrackActive]}
+                                        style={[
+                                            taxSheetStyles.miniTrack,
+                                            fee.isEnabled && taxSheetStyles.miniTrackActive,
+                                        ]}
                                         onPress={() => toggleFee(fee.id)}
                                         activeOpacity={0.8}
                                     >
-                                        <View style={[taxSheetStyles.miniThumb, fee.isEnabled && taxSheetStyles.miniThumbActive]} />
+                                        <View
+                                            style={[
+                                                taxSheetStyles.miniThumb,
+                                                fee.isEnabled && taxSheetStyles.miniThumbActive,
+                                            ]}
+                                        />
                                     </TouchableOpacity>
 
                                     {/* Name */}
@@ -851,7 +938,7 @@ function TaxServiceSettingsSheet({
                                             value={String(Math.round(fee.rate * 10000) / 100)}
                                             keyboardType="decimal-pad"
                                             onChangeText={(v) => {
-                                                const parsed = parseFloat(v.replace(',', '.'));
+                                                const parsed = parseFloat(v.replace(",", "."));
                                                 if (Number.isFinite(parsed) && parsed >= 0) {
                                                     updateFee(fee.id, { rate: parsed / 100 });
                                                 }
@@ -897,18 +984,42 @@ function TaxServiceSettingsSheet({
                                         />
                                         <Text style={sheetStyles.currency}>%</Text>
                                     </View>
-                                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                                    <View style={{ flexDirection: "row", gap: 8 }}>
                                         <TouchableOpacity
-                                            style={[taxSheetStyles.formBtn, { backgroundColor: '#292929', flex: 1 }]}
-                                            onPress={() => { setShowAddForm(false); setNewFeeName(''); setNewFeeRateText(''); }}
+                                            style={[
+                                                taxSheetStyles.formBtn,
+                                                { backgroundColor: "#292929", flex: 1 },
+                                            ]}
+                                            onPress={() => {
+                                                setShowAddForm(false);
+                                                setNewFeeName("");
+                                                setNewFeeRateText("");
+                                            }}
                                         >
-                                            <Text style={[taxSheetStyles.formBtnText, { color: '#A0A0A2' }]}>Cancel</Text>
+                                            <Text
+                                                style={[
+                                                    taxSheetStyles.formBtnText,
+                                                    { color: "#A0A0A2" },
+                                                ]}
+                                            >
+                                                Cancel
+                                            </Text>
                                         </TouchableOpacity>
                                         <TouchableOpacity
-                                            style={[taxSheetStyles.formBtn, { backgroundColor: '#2CC75C', flex: 1 }]}
+                                            style={[
+                                                taxSheetStyles.formBtn,
+                                                { backgroundColor: "#2CC75C", flex: 1 },
+                                            ]}
                                             onPress={handleAddFee}
                                         >
-                                            <Text style={[taxSheetStyles.formBtnText, { color: '#022C22' }]}>Add</Text>
+                                            <Text
+                                                style={[
+                                                    taxSheetStyles.formBtnText,
+                                                    { color: "#022C22" },
+                                                ]}
+                                            >
+                                                Add
+                                            </Text>
                                         </TouchableOpacity>
                                     </View>
                                 </View>
@@ -919,7 +1030,9 @@ function TaxServiceSettingsSheet({
                                     activeOpacity={0.7}
                                 >
                                     <Feather name="plus" size={16} color="#2CC75C" />
-                                    <Text style={taxSheetStyles.addNewBtnText}>Add custom fee</Text>
+                                    <Text style={taxSheetStyles.addNewBtnText}>
+                                        Add custom fee
+                                    </Text>
                                 </TouchableOpacity>
                             )}
 
@@ -940,8 +1053,8 @@ function TaxServiceSettingsSheet({
 
 const taxSheetStyles = StyleSheet.create({
     feeRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
+        flexDirection: "row",
+        alignItems: "center",
         marginBottom: 12,
         gap: 10,
     },
@@ -949,106 +1062,106 @@ const taxSheetStyles = StyleSheet.create({
         width: 40,
         height: 24,
         borderRadius: 12,
-        backgroundColor: '#3E3E3E',
+        backgroundColor: "#3E3E3E",
         padding: 2,
-        justifyContent: 'center',
+        justifyContent: "center",
     },
     miniTrackActive: {
-        backgroundColor: '#2CC75C',
+        backgroundColor: "#2CC75C",
     },
     miniThumb: {
         width: 20,
         height: 20,
         borderRadius: 10,
-        backgroundColor: '#A0A0A2',
+        backgroundColor: "#A0A0A2",
     },
     miniThumbActive: {
-        backgroundColor: '#FFFFFF',
-        alignSelf: 'flex-end',
+        backgroundColor: "#FFFFFF",
+        alignSelf: "flex-end",
     },
     feeNameInput: {
         flex: 1,
         fontSize: 16,
-        color: '#E5E5E8',
-        backgroundColor: '#141414',
+        color: "#E5E5E8",
+        backgroundColor: "#141414",
         borderRadius: 10,
         borderWidth: 1,
-        borderColor: '#292929',
+        borderColor: "#292929",
         paddingHorizontal: 12,
         paddingVertical: 8,
     },
     rateBox: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#141414',
+        flexDirection: "row",
+        alignItems: "center",
+        backgroundColor: "#141414",
         borderRadius: 10,
         borderWidth: 1,
-        borderColor: '#292929',
+        borderColor: "#292929",
         paddingHorizontal: 10,
         paddingVertical: 8,
         width: 72,
     },
     rateInput: {
         fontSize: 16,
-        color: '#E5E5E8',
+        color: "#E5E5E8",
         flex: 1,
-        textAlign: 'right',
+        textAlign: "right",
     },
     rateSymbol: {
         fontSize: 14,
-        color: '#7D7D80',
+        color: "#7D7D80",
         marginLeft: 2,
     },
     deleteBtn: {
         width: 32,
-        alignItems: 'center',
+        alignItems: "center",
     },
     addNewBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
         gap: 8,
         paddingVertical: 14,
         borderRadius: 12,
         borderWidth: 1,
-        borderColor: '#2CC75C40',
-        borderStyle: 'dashed',
-        backgroundColor: '#2CC75C08',
+        borderColor: "#2CC75C40",
+        borderStyle: "dashed",
+        backgroundColor: "#2CC75C08",
         marginTop: 4,
     },
     addNewBtnText: {
         fontSize: 15,
-        fontWeight: '600',
-        color: '#2CC75C',
+        fontWeight: "600",
+        color: "#2CC75C",
     },
     addForm: {
         marginTop: 8,
         padding: 12,
-        backgroundColor: '#141414',
+        backgroundColor: "#141414",
         borderRadius: 12,
         borderWidth: 1,
-        borderColor: '#292929',
+        borderColor: "#292929",
     },
     formBtn: {
         paddingVertical: 12,
         borderRadius: 10,
-        alignItems: 'center',
+        alignItems: "center",
     },
     formBtnText: {
         fontSize: 15,
-        fontWeight: '700',
+        fontWeight: "700",
     },
     saveBtn: {
-        backgroundColor: '#2CC75C',
+        backgroundColor: "#2CC75C",
         paddingVertical: 16,
         borderRadius: 14,
-        alignItems: 'center',
+        alignItems: "center",
         marginTop: 24,
     },
     saveBtnText: {
-        color: '#022C22',
+        color: "#022C22",
         fontSize: 16,
-        fontWeight: '700',
+        fontWeight: "700",
     },
 });
 
@@ -1083,7 +1196,7 @@ export function HomeScreen() {
     // Bottom sheet state
     const [sheetVisible, setSheetVisible] = useState(false);
     const [sheetTargetId, setSheetTargetId] = useState<string | null>(null);
-    const [sheetTargetLabel, setSheetTargetLabel] = useState('');
+    const [sheetTargetLabel, setSheetTargetLabel] = useState("");
     const [sheetIsShared, setSheetIsShared] = useState(false);
 
     // Edit item sheet state
@@ -1100,7 +1213,7 @@ export function HomeScreen() {
 
     const openSheetForShared = useCallback(() => {
         setSheetTargetId(null);
-        setSheetTargetLabel('everyone');
+        setSheetTargetLabel("everyone");
         setSheetIsShared(true);
         setSheetVisible(true);
     }, []);
@@ -1115,7 +1228,13 @@ export function HomeScreen() {
                 addItemForParticipants(selectedIds, label, price);
             }
         },
-        [sheetTargetId, addItemForParticipant, addSharedItem, addItemForParticipants, participants.length],
+        [
+            sheetTargetId,
+            addItemForParticipant,
+            addSharedItem,
+            addItemForParticipants,
+            participants.length,
+        ],
     );
 
     const handleEditItemSave = useCallback(
@@ -1129,7 +1248,7 @@ export function HomeScreen() {
         <SafeAreaView style={styles.safeArea}>
             <KeyboardAvoidingView
                 style={styles.container}
-                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                behavior={Platform.OS === "ios" ? "padding" : undefined}
             >
                 {/* ── Custom App Header ── */}
                 <View style={styles.appHeader}>
@@ -1137,14 +1256,15 @@ export function HomeScreen() {
                     <View style={styles.appHeaderActions}>
                         <TouchableOpacity
                             style={styles.historyBtn}
-                            onPress={() => navigation.navigate('HistoryList')}
+                            onPress={() => navigation.navigate("HistoryList")}
                         >
-                            <MaterialCommunityIcons name="history" size={24} color="#E5E5E8" />
+                            <MaterialCommunityIcons
+                                name="history"
+                                size={24}
+                                color="#E5E5E8"
+                            />
                         </TouchableOpacity>
-                        <TouchableOpacity
-                            style={styles.newBillBtn}
-                            onPress={resetBill}
-                        >
+                        <TouchableOpacity style={styles.newBillBtn} onPress={resetBill}>
                             <Feather name="plus" size={16} color="#E5E5E8" />
                             <Text style={styles.newBillBtnText}>New</Text>
                         </TouchableOpacity>
@@ -1160,7 +1280,13 @@ export function HomeScreen() {
                     <View style={styles.header}>
                         <View style={styles.titleRow}>
                             {isEditingTitle ? (
-                                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
+                                <View
+                                    style={{
+                                        flex: 1,
+                                        flexDirection: "row",
+                                        alignItems: "center",
+                                    }}
+                                >
                                     <TextInput
                                         style={styles.titleInput}
                                         value={billTitle}
@@ -1187,7 +1313,11 @@ export function HomeScreen() {
                                     <Text style={styles.title} numberOfLines={1}>
                                         {billTitle}
                                     </Text>
-                                    <CustomEditIcon size={18} color="#5C5C5E" style={{ marginLeft: 8 }} />
+                                    <CustomEditIcon
+                                        size={18}
+                                        color="#5C5C5E"
+                                        style={{ marginLeft: 8 }}
+                                    />
                                 </TouchableOpacity>
                             )}
                             {/* <TouchableOpacity style={styles.moreIcon}>
@@ -1197,36 +1327,42 @@ export function HomeScreen() {
                     </View>
 
                     {/* ── Dynamic Fees Toggles ── */}
-                    <View style={[
-                        styles.toggleRow,
-                        fees.some(f => f.isEnabled) && styles.toggleRowActive
-                    ]}>
+                    <View
+                        style={[
+                            styles.toggleRow,
+                            fees.some((f) => f.isEnabled) && styles.toggleRowActive,
+                        ]}
+                    >
                         <TouchableOpacity
                             style={styles.masterToggle}
                             onPress={() => {
-                                const anyOn = fees.some(f => f.isEnabled);
+                                const anyOn = fees.some((f) => f.isEnabled);
                                 // If any are active, turn them all off. If none active, turn all on.
-                                fees.forEach(f => {
+                                fees.forEach((f) => {
                                     if (anyOn === f.isEnabled) toggleFee(f.id);
                                 });
                             }}
                             activeOpacity={0.7}
                         >
-                            <View style={[
-                                styles.toggleTrack,
-                                fees.some(f => f.isEnabled) && styles.toggleTrackActive,
-                            ]}>
-                                <View style={[
-                                    styles.toggleThumb,
-                                    fees.some(f => f.isEnabled) && styles.toggleThumbActive,
-                                ]} />
+                            <View
+                                style={[
+                                    styles.toggleTrack,
+                                    fees.some((f) => f.isEnabled) && styles.toggleTrackActive,
+                                ]}
+                            >
+                                <View
+                                    style={[
+                                        styles.toggleThumb,
+                                        fees.some((f) => f.isEnabled) && styles.toggleThumbActive,
+                                    ]}
+                                />
                             </View>
                         </TouchableOpacity>
 
                         <View style={styles.toggleChips}>
                             {/* Only show built-in fees as chips; custom fees get a +N badge */}
                             {fees
-                                .filter(f => ['fee-1', 'fee-2'].includes(f.id))
+                                .filter((f) => ["fee-1", "fee-2"].includes(f.id))
                                 .map((fee) => (
                                     <TouchableOpacity
                                         key={fee.id}
@@ -1237,30 +1373,39 @@ export function HomeScreen() {
                                         onPress={() => toggleFee(fee.id)}
                                         activeOpacity={0.7}
                                     >
-                                        <Text style={[
-                                            styles.toggleChipText,
-                                            fee.isEnabled && styles.toggleChipTextActive,
-                                        ]}>
+                                        <Text
+                                            style={[
+                                                styles.toggleChipText,
+                                                fee.isEnabled && styles.toggleChipTextActive,
+                                            ]}
+                                        >
                                             {fee.name} {Math.round(fee.rate * 100)}%
                                         </Text>
                                     </TouchableOpacity>
-                                ))
-                            }
+                                ))}
                             {/* +N badge for custom fees */}
-                            {fees.filter(f => !['fee-1', 'fee-2'].includes(f.id)).length > 0 && (
-                                <TouchableOpacity
-                                    style={styles.toggleChipExtra}
-                                    onPress={() => setTaxSettingsVisible(true)}
-                                    activeOpacity={0.7}
-                                >
-                                    <Text style={styles.toggleChipExtraText}>
-                                        +{fees.filter(f => !['fee-1', 'fee-2'].includes(f.id)).length}
-                                    </Text>
-                                </TouchableOpacity>
-                            )}
+                            {fees.filter((f) => !["fee-1", "fee-2"].includes(f.id)).length >
+                                0 && (
+                                    <TouchableOpacity
+                                        style={styles.toggleChipExtra}
+                                        onPress={() => setTaxSettingsVisible(true)}
+                                        activeOpacity={0.7}
+                                    >
+                                        <Text style={styles.toggleChipExtraText}>
+                                            +
+                                            {
+                                                fees.filter((f) => !["fee-1", "fee-2"].includes(f.id))
+                                                    .length
+                                            }
+                                        </Text>
+                                    </TouchableOpacity>
+                                )}
                         </View>
 
-                        <TouchableOpacity style={styles.settingsIconBtn} onPress={() => setTaxSettingsVisible(true)}>
+                        <TouchableOpacity
+                            style={styles.settingsIconBtn}
+                            onPress={() => setTaxSettingsVisible(true)}
+                        >
                             <Feather name="sliders" size={20} color="#FFFFFF" />
                         </TouchableOpacity>
                     </View>
@@ -1273,7 +1418,9 @@ export function HomeScreen() {
                         </View>
                         <TouchableOpacity
                             style={styles.sectionAddBtnSmall}
-                            onPress={() => addParticipant(`Friend ${participants.length + 1}`)}
+                            onPress={() =>
+                                addParticipant(`Friend ${participants.length + 1}`)
+                            }
                         >
                             <Feather name="user-plus" size={14} color="#A0A0A2" />
                             <Text style={styles.sectionAddBtnTextSmall}>Add</Text>
@@ -1287,7 +1434,12 @@ export function HomeScreen() {
                             onPress={openSheetForShared}
                             activeOpacity={0.7}
                         >
-                            <Feather name="users" size={16} color="#2CC75C" style={{ marginRight: 8 }} />
+                            <Feather
+                                name="users"
+                                size={16}
+                                color="#2CC75C"
+                                style={{ marginRight: 8 }}
+                            />
                             <Text style={styles.sharedItemText}>Add shared item</Text>
                         </TouchableOpacity>
                     )}
@@ -1299,36 +1451,40 @@ export function HomeScreen() {
                             onAddItem={() => openSheetForParticipant(p.id, p.name)}
                             onEditItem={(item) => setEditTargetItem(item)}
                             onPress={() =>
-                                navigation.navigate('PersonDetail', { participantId: p.id })
+                                navigation.navigate("PersonDetail", { participantId: p.id })
                             }
                         />
                     ))}
 
                     {/* ── Totals ── */}
-                    <View style={styles.totalsCard}>
-                        <View style={styles.totalsRow}>
-                            <Text style={styles.totalsLabel}>Subtotal</Text>
-                            <Text style={styles.totalsValue}>{bill.subtotal.toFixed(2)}</Text>
+                    {items.length > 0 && (
+                        <View style={styles.totalsCard}>
+                            <View style={styles.totalsRow}>
+                                <Text style={styles.totalsLabel}>Subtotal</Text>
+                                <Text style={styles.totalsValue}>
+                                    {bill.subtotal.toFixed(2)}
+                                </Text>
+                            </View>
+                            {bill.fees.map((fee) => {
+                                if (!fee.isEnabled) return null;
+                                const amount = bill.feesAmounts[fee.id] || 0;
+                                return (
+                                    <View key={fee.id} style={styles.totalsRow}>
+                                        <Text style={styles.totalsLabel}>
+                                            {fee.name} {Math.round(fee.rate * 100)}%
+                                        </Text>
+                                        <Text style={styles.totalsValue}>{amount.toFixed(2)}</Text>
+                                    </View>
+                                );
+                            })}
+                            <View style={[styles.totalsRow, styles.totalsDivider]}>
+                                <Text style={styles.totalsFinalLabel}>Total</Text>
+                                <Text style={styles.totalsFinalValue}>
+                                    {bill.total.toFixed(2)} EGP
+                                </Text>
+                            </View>
                         </View>
-                        {bill.fees.map((fee) => {
-                            if (!fee.isEnabled) return null;
-                            const amount = bill.feesAmounts[fee.id] || 0;
-                            return (
-                                <View key={fee.id} style={styles.totalsRow}>
-                                    <Text style={styles.totalsLabel}>{fee.name} {Math.round(fee.rate * 100)}%</Text>
-                                    <Text style={styles.totalsValue}>
-                                        {amount.toFixed(2)}
-                                    </Text>
-                                </View>
-                            );
-                        })}
-                        <View style={[styles.totalsRow, styles.totalsDivider]}>
-                            <Text style={styles.totalsFinalLabel}>Total</Text>
-                            <Text style={styles.totalsFinalValue}>
-                                {bill.total.toFixed(2)} EGP
-                            </Text>
-                        </View>
-                    </View>
+                    )}
 
                     <View style={{ height: 40 }} />
                 </ScrollView>
@@ -1366,58 +1522,58 @@ export function HomeScreen() {
 const styles = StyleSheet.create({
     safeArea: {
         flex: 1,
-        backgroundColor: '#141414',
-        paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+        backgroundColor: "#141414",
+        paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
     },
     container: {
         flex: 1,
-        backgroundColor: '#141414',
+        backgroundColor: "#141414",
     },
     appHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
         paddingHorizontal: 20,
         paddingTop: 12,
         paddingBottom: 20,
         borderBottomWidth: 1,
-        borderBottomColor: '#1A1A1A',
+        borderBottomColor: "#1A1A1A",
     },
     appTitle: {
-        color: '#FFFFFF',
-        textAlign: 'center',
-        fontFamily: 'GoogleSansFlex_600SemiBold', // Mapping to 600 weight
+        color: "#FFFFFF",
+        textAlign: "center",
+        fontFamily: "GoogleSansFlex_600SemiBold", // Mapping to 600 weight
         fontSize: 24, // var(--font-size-3, 24px)
-        fontStyle: 'normal',
-        fontWeight: '600',
+        fontStyle: "normal",
+        fontWeight: "600",
         lineHeight: 32, // var(--line-height-3, 32px)
         letterSpacing: -0.25,
         // @ts-expect-error
         fontVariationSettings: "'wdth' 128, 'GRAD' 50, 'ROND' 50",
     },
     appHeaderActions: {
-        flexDirection: 'row',
-        alignItems: 'center',
+        flexDirection: "row",
+        alignItems: "center",
         gap: 16,
     },
     historyBtn: {
         padding: 4,
     },
     newBillBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#292929',
+        flexDirection: "row",
+        alignItems: "center",
+        backgroundColor: "#292929",
         paddingHorizontal: 12,
         paddingVertical: 8,
         borderRadius: 99,
         borderWidth: 1,
-        borderColor: '#404041',
+        borderColor: "#404041",
         gap: 4,
     },
     newBillBtnText: {
-        color: '#E5E5E8',
+        color: "#E5E5E8",
         fontSize: 14,
-        fontWeight: '600',
+        fontWeight: "600",
         // @ts-expect-error
         fontVariationSettings: "'wdth' 128, 'GRAD' 50, 'ROND' 50",
     },
@@ -1435,18 +1591,18 @@ const styles = StyleSheet.create({
         marginBottom: 16,
     },
     titleRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
     },
     titleClickArea: {
-        flexDirection: 'row',
-        alignItems: 'center',
+        flexDirection: "row",
+        alignItems: "center",
     },
     title: {
         fontSize: 24,
-        fontWeight: '800',
-        color: '#F5F5F7',
+        fontWeight: "800",
+        color: "#F5F5F7",
         letterSpacing: -0.5,
     },
     moreIcon: {
@@ -1454,61 +1610,61 @@ const styles = StyleSheet.create({
     },
     editIcon: {
         fontSize: 16,
-        color: '#5C5C5E',
+        color: "#5C5C5E",
         marginLeft: 8,
     },
     titleInput: {
         flex: 1,
         fontSize: 24,
-        fontWeight: '800',
-        color: '#F5F5F7',
+        fontWeight: "800",
+        color: "#F5F5F7",
         paddingBottom: 4,
         borderBottomWidth: 2,
-        borderBottomColor: '#2CC75C',
+        borderBottomColor: "#2CC75C",
     },
 
     // Toggles
     toggleRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#141414',
+        flexDirection: "row",
+        alignItems: "center",
+        backgroundColor: "#141414",
         paddingHorizontal: 16,
         paddingVertical: 12,
         borderRadius: 16,
         marginBottom: 24,
         borderWidth: 1,
-        borderColor: '#292929',
+        borderColor: "#292929",
     },
     toggleRowActive: {
-        borderColor: '#0E8332',
+        borderColor: "#0E8332",
     },
     masterToggle: {
-        flexDirection: 'row',
-        alignItems: 'center',
+        flexDirection: "row",
+        alignItems: "center",
     },
     toggleTrack: {
         width: 52,
         height: 32,
         borderRadius: 16,
-        backgroundColor: '#3E3E3E',
+        backgroundColor: "#3E3E3E",
         padding: 2,
-        justifyContent: 'center',
+        justifyContent: "center",
     },
     toggleTrackActive: {
-        backgroundColor: '#2CC75C',
+        backgroundColor: "#2CC75C",
     },
     toggleThumb: {
         width: 28,
         height: 28,
         borderRadius: 14,
-        backgroundColor: '#A0A0A2',
+        backgroundColor: "#A0A0A2",
     },
     toggleThumbActive: {
-        backgroundColor: '#FFFFFF',
-        alignSelf: 'flex-end',
+        backgroundColor: "#FFFFFF",
+        alignSelf: "flex-end",
     },
     toggleChips: {
-        flexDirection: 'row',
+        flexDirection: "row",
         gap: 8,
         marginLeft: 16,
         flex: 1,
@@ -1518,46 +1674,46 @@ const styles = StyleSheet.create({
         paddingHorizontal: 8,
         borderRadius: 16,
         borderWidth: 1,
-        borderColor: '#404041',
-        backgroundColor: 'transparent',
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
+        borderColor: "#404041",
+        backgroundColor: "transparent",
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
         gap: 8,
     },
     toggleChipActive: {
-        backgroundColor: 'rgba(44, 199, 92, 0.1)',
-        borderColor: 'rgba(44, 199, 92, 0.6)',
+        backgroundColor: "rgba(44, 199, 92, 0.1)",
+        borderColor: "rgba(44, 199, 92, 0.6)",
     },
     toggleChipText: {
-        textAlign: 'center',
+        textAlign: "center",
         fontSize: 12,
-        fontWeight: '500',
+        fontWeight: "500",
         lineHeight: 18,
-        color: '#FFFFFF',
+        color: "#FFFFFF",
         // @ts-expect-error
         fontVariationSettings: "'liga' 0, 'clig' 0",
     },
     toggleChipTextActive: {
-        color: '#F0FDF4',
+        color: "#F0FDF4",
     },
     toggleChipExtra: {
         paddingVertical: 4,
         paddingHorizontal: 8,
         borderRadius: 16,
         borderWidth: 1,
-        borderColor: 'rgba(44, 199, 92, 0.6)',
-        backgroundColor: 'transparent',
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
+        borderColor: "rgba(44, 199, 92, 0.6)",
+        backgroundColor: "transparent",
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
     },
     toggleChipExtraText: {
-        textAlign: 'center',
+        textAlign: "center",
         fontSize: 12,
-        fontWeight: '500',
+        fontWeight: "500",
         lineHeight: 18,
-        color: '#F0FDF4',
+        color: "#F0FDF4",
         // @ts-expect-error
         fontVariationSettings: "'liga' 0, 'clig' 0",
     },
@@ -1567,108 +1723,107 @@ const styles = StyleSheet.create({
 
     // Section
     sectionHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
+        flexDirection: "row",
+        alignItems: "center",
         marginBottom: 12,
     },
     sectionTitle: {
         fontSize: 18,
-        fontWeight: '700',
-        color: '#E5E5E8',
+        fontWeight: "700",
+        color: "#E5E5E8",
         // @ts-expect-error
         fontVariationSettings: "'wdth' 128, 'GRAD' 50, 'ROND' 50",
     },
     sectionCountBadge: {
         marginLeft: 8,
-        backgroundColor: '#292929',
+        backgroundColor: "#292929",
         paddingHorizontal: 8,
         paddingVertical: 2,
         borderRadius: 99,
     },
     sectionCountText: {
         fontSize: 13,
-        color: '#7D7D80',
-        fontWeight: '600',
+        color: "#7D7D80",
+        fontWeight: "600",
     },
     sectionAddBtnSmall: {
-        marginLeft: 'auto',
-        flexDirection: 'row',
-        alignItems: 'center',
+        marginLeft: "auto",
+        flexDirection: "row",
+        alignItems: "center",
         paddingHorizontal: 10,
         paddingVertical: 6,
         borderRadius: 8,
-        backgroundColor: '#292929',
+        backgroundColor: "#292929",
         gap: 4,
         borderWidth: 1,
-        borderColor: '#404041',
+        borderColor: "#404041",
     },
     sectionAddBtnTextSmall: {
         fontSize: 12,
-        color: '#A0A0A2',
-        fontWeight: '600',
+        color: "#A0A0A2",
+        fontWeight: "600",
         // @ts-expect-error
         fontVariationSettings: "'wdth' 128, 'GRAD' 50, 'ROND' 50",
     },
 
     // Shared item button
     sharedItemBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
         paddingVertical: 12,
         borderRadius: 14,
         borderWidth: 1,
-        borderColor: '#2CC75C40',
-        borderStyle: 'dashed',
-        backgroundColor: '#2CC75C08',
+        borderColor: "#2CC75C40",
+        borderStyle: "dashed",
+        backgroundColor: "#2CC75C08",
         marginTop: 6,
         marginBottom: 12,
     },
     sharedItemText: {
         fontSize: 14,
-        color: '#7CFFA4',
-        fontWeight: '600',
+        color: "#7CFFA4",
+        fontWeight: "600",
         // @ts-expect-error
         fontVariationSettings: "'wdth' 128, 'GRAD' 50, 'ROND' 50",
     },
 
     // Totals card
     totalsCard: {
-        backgroundColor: '#1A1A1A',
         borderRadius: 16,
-        padding: 16,
+        padding: 12,
         marginTop: 24,
         borderWidth: 1,
-        borderColor: '#292929',
+        borderColor: "#292929",
     },
     totalsRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
+        flexDirection: "row",
+        justifyContent: "space-between",
         paddingVertical: 6,
     },
     totalsLabel: {
         fontSize: 14,
-        color: '#7D7D80',
+        color: "#7D7D80",
     },
     totalsValue: {
         fontSize: 14,
-        color: '#C2C2C6',
-        fontWeight: '600',
+        color: "#C2C2C6",
+        fontWeight: "600",
     },
     totalsDivider: {
         borderTopWidth: 1,
-        borderTopColor: '#292929',
+        borderTopColor: "#292929",
         marginTop: 8,
         paddingTop: 12,
     },
     totalsFinalLabel: {
         fontSize: 16,
-        fontWeight: '700',
-        color: '#E5E5E8',
+        fontWeight: "700",
+        color: "#E5E5E8",
     },
     totalsFinalValue: {
         fontSize: 18,
-        fontWeight: '800',
-        color: '#2CC75C',
+        fontWeight: "800",
+        color: "#2CC75C",
     },
 });
